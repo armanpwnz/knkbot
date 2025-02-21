@@ -21,7 +21,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Хранилища данных
+// Data storage
 const chatMessages: Record<string, ChatMessage[]> = {};
 const digestCache: Record<string, DigestCache> = {};
 const commandUsage: Record<string, CommandUsage> = {};
@@ -36,18 +36,18 @@ app.post(secretPath, (req, res) => {
   bot.handleUpdate(req.body, res);
 });
 
-// Регистрация команд
+// Command registration
 bot.command('start', async (ctx) => {
-  await ctx.reply('Привет! Я бот для создания дайджестов чата. Используйте команды:\n/digest - создать дайджест\n/status - количество сохраненных сообщений');
+  await ctx.reply('Hi! I\'m a chat analysis bot. Use commands:\n/digest - create chat analysis\n/status - get saved messages count');
 });
 
 bot.command('status', async (ctx) => {
   try {
     const chatId = ctx.chat.id.toString();
     const messageCount = chatMessages[chatId]?.length || 0;
-    await ctx.reply(`Количество сохраненных сообщений: ${messageCount}`);
+    await ctx.reply(`Number of saved messages: ${messageCount}`);
   } catch (error) {
-    console.error('Ошибка в команде status:', error);
+    console.error('Error in status command:', error);
   }
 });
 
@@ -56,27 +56,27 @@ bot.command('digest', async (ctx) => {
     const chatId = ctx.chat.id.toString();
     const now = Date.now();
 
-    // Проверяем, когда команда использовалась в последний раз
+    // Check when the command was last used
     if (commandUsage[chatId]?.lastUsed &&
         now - commandUsage[chatId].lastUsed < DIGEST_COOLDOWN) {
       const minutesLeft = Math.ceil((DIGEST_COOLDOWN - (now - commandUsage[chatId].lastUsed)) / 60000);
-      return await ctx.reply(`Команду /digest можно использовать раз в 30 минут. Подождите ещё ${minutesLeft} минут.`);
+      return await ctx.reply(`The command /digest can be used once every 30 minutes. Please wait another ${minutesLeft} minutes.`);
     }
 
     if (!chatMessages[chatId] || chatMessages[chatId].length === 0) {
-      return await ctx.reply('В чате пока нет сообщений для создания дайджеста.');
+      return await ctx.reply('There are no messages in the chat to create a chat analysis.');
     }
 
     await createDigest(ctx, chatId);
 
-    // Обновляем время последнего использования команды
+    // Update the last used time of the command
     commandUsage[chatId] = { lastUsed: now };
   } catch (error) {
-    console.error('Ошибка в команде digest:', error);
+    console.error('Error in digest command:', error);
   }
 });
 
-// Обновим обработчик реакций
+// Update reaction handler
 bot.on('message_reaction', async (ctx) => {
   try {
     const chatId = ctx.chat.id.toString();
@@ -88,7 +88,7 @@ bot.on('message_reaction', async (ctx) => {
     if (message) {
       const reactions: MessageReactions = { total: 0 };
 
-      // Обрабатываем новые реакции
+      // Process new reactions
       if (ctx.messageReaction.new_reaction) {
         ctx.messageReaction.new_reaction.forEach(reaction => {
           const emojiStr = 'type' in reaction && reaction.type === 'custom_emoji'
@@ -99,7 +99,7 @@ bot.on('message_reaction', async (ctx) => {
         });
       }
 
-      // Обрабатываем удаленные реакции
+      // Process removed reactions
       if (ctx.messageReaction.old_reaction) {
         ctx.messageReaction.old_reaction.forEach(reaction => {
           const emojiStr = 'type' in reaction && reaction.type === 'custom_emoji'
@@ -118,11 +118,11 @@ bot.on('message_reaction', async (ctx) => {
       message.reactions = reactions;
     }
   } catch (error) {
-    console.error('Ошибка при обработке реакции:', error);
+    console.error('Error processing reaction:', error);
   }
 });
 
-// Добавим обработчик ответов на сообщения
+// Add message reply handler
 bot.on('text', async (ctx) => {
   if (ctx.message.text.startsWith('/')) return;
 
@@ -131,7 +131,7 @@ bot.on('text', async (ctx) => {
     chatMessages[chatId] = [];
   }
 
-  // Проверяем ответы
+  // Check replies
   if (ctx.message.reply_to_message) {
     const repliedMessage = chatMessages[chatId].find(
       msg => msg.messageId === ctx.message.reply_to_message?.message_id
@@ -152,14 +152,7 @@ bot.on('text', async (ctx) => {
   });
 });
 
-// Обновим интерфейс для подсчета активности пользователей
-interface UserActivity {
-  messageCount: number;
-  name: string;
-  username: string;
-}
-
-// Обновим форматирование сообщений для дайджеста
+// Update message formatting for digest
 function formatMessagesForDigest(messages: ChatMessage[]): string {
   const sortedMessages = [...messages].sort((a, b) => {
     const aScore = a.reactions.total * 2 + a.replies;
@@ -190,16 +183,16 @@ function formatMessagesForDigest(messages: ChatMessage[]): string {
     .join('\n');
 }
 
-// Функция создания дайджеста с кешированием
+// Create digest with caching
 async function createDigest(ctx: Context, chatId: string) {
   const currentMessages = chatMessages[chatId];
   const cachedDigest = digestCache[chatId];
 
-  // Проверяем актуальность кеша
+  // Check cache relevance
   if (cachedDigest &&
       Date.now() - cachedDigest.timestamp < CACHE_LIFETIME &&
       cachedDigest.messageCount === currentMessages.length) {
-    return await ctx.reply('📋 Дайджест чата:\n\n' + cachedDigest.digest);
+    return await ctx.reply('📝 Аналіз чату:\n\n' + cachedDigest.digest);
   }
 
   const messages = formatMessagesForDigest(currentMessages);
@@ -222,20 +215,20 @@ async function createDigest(ctx: Context, chatId: string) {
 
   const digest = response.choices[0].message.content;
   if (!digest) {
-    throw new Error('Не удалось создать дайджест');
+    throw new Error('Failed to create chat analysis');
   }
 
-  // Сохраняем результат в кеш
+  // Save result to cache
   digestCache[chatId] = {
     digest,
     timestamp: Date.now(),
     messageCount: currentMessages.length
   };
 
-  await ctx.reply('📋 Дайджест чата:\n\n' + digest);
+  await ctx.reply('📝 Аналіз чату:\n\n' + digest);
 }
 
-// Ежедневный дайджест
+// Daily digest
 cron.schedule('0 20 * * *', async () => {
   for (const chatId in chatMessages) {
     if (chatMessages[chatId].length > 0) {
@@ -258,13 +251,13 @@ cron.schedule('0 20 * * *', async () => {
         });
 
         const digest = response.choices[0].message.content;
-        if (!digest) throw new Error('Не удалось создать дайджест');
+        if (!digest) throw new Error('Failed to create chat analysis');
 
-        await bot.telegram.sendMessage(chatId, '📋 Ежедневный дайджест:\n\n' + digest);
-        chatMessages[chatId] = []; // Очищаем историю после анализа
-        delete digestCache[chatId]; // Очищаем кеш
+        await bot.telegram.sendMessage(chatId, '📝 Аналіз чату:\n\n' + digest);
+        chatMessages[chatId] = []; // Clear history after analysis
+        delete digestCache[chatId]; // Clear cache
       } catch (error) {
-        console.error(`Ошибка при создании ежедневного дайджеста для чата ${chatId}:`, error);
+        console.error(`Error in daily chat analysis for chat ${chatId}:`, error);
       }
     }
   }
@@ -275,13 +268,13 @@ async function startBot() {
     if (process.env.NODE_ENV === 'production') {
       const webhookUrl = `${process.env.RENDER_EXTERNAL_URL}${secretPath}`;
       await bot.telegram.setWebhook(webhookUrl);
-      console.log('Webhook установлен:', webhookUrl);
+      console.log('Webhook set:', webhookUrl);
     } else {
       await bot.launch();
-      console.log('Бот запущен в режиме polling');
+      console.log('Bot started in polling mode');
     }
   } catch (error) {
-    console.error('Ошибка при запуске бота:', error);
+    console.error('Error starting bot:', error);
   }
 }
 
