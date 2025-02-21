@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: chat-digest-bot
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: RENDER_EXTERNAL_URL
+        sync: false

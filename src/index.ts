@@ -12,6 +12,7 @@ import {
   DIGEST_COOLDOWN,
   systemPrompt
 } from './utils';
+import express from 'express';
 
 dotenv.config();
 
@@ -24,6 +25,16 @@ const openai = new OpenAI({
 const chatMessages: Record<string, ChatMessage[]> = {};
 const digestCache: Record<string, DigestCache> = {};
 const commandUsage: Record<string, CommandUsage> = {};
+
+const app = express();
+const port = process.env.PORT || 3000;
+const secretPath = `/webhook/${bot.secretPathComponent()}`;
+
+app.use(express.json());
+
+app.post(secretPath, (req, res) => {
+  bot.handleUpdate(req.body, res);
+});
 
 // Регистрация команд
 bot.command('start', async (ctx) => {
@@ -259,10 +270,25 @@ cron.schedule('0 20 * * *', async () => {
   }
 });
 
-bot.launch()
-  .then(() => console.log('Бот запущен'))
-  .catch((error) => console.error('Ошибка при запуске бота:', error));
+async function startBot() {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      const webhookUrl = `${process.env.RENDER_EXTERNAL_URL}${secretPath}`;
+      await bot.telegram.setWebhook(webhookUrl);
+      console.log('Webhook установлен:', webhookUrl);
+    } else {
+      await bot.launch();
+      console.log('Бот запущен в режиме polling');
+    }
+  } catch (error) {
+    console.error('Ошибка при запуске бота:', error);
+  }
+}
 
-// Graceful stop
+app.listen(port, async () => {
+  console.log(`Server is running on port ${port}`);
+  await startBot();
+});
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
