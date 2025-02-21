@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.npm
+.yarn
+
+# Environment
+.env
+.env.*
+
+# Build
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+EOL
