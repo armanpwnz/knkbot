@@ -57,7 +57,7 @@ export class AnalysisService {
 
   private async generateAnalysis(messages: string): Promise<string> {
     const response = await this.openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4.0-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: messages }
